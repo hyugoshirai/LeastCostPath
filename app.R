@@ -6,12 +6,17 @@ try(install.packages(packages[!packages %in% installed.packages()]))
 # Load packages 
 try(invisible(lapply(packages, library, character.only = TRUE)))
 
-# Load the raster file
-rst <- raster("BD_LeastCostTool/landuse_simplified.tif")
+# Load the raster file directly from GitHub
+rst <- raster("/vsicurl/https://raw.githubusercontent.com/hyugoshirai/LeastCostPath/main/BD_LeastCostTool/landuse_simplified.tif")
 
-# Load origin and goal points
-origin_cd <- st_coordinates(st_read("BD_LeastCostTool/origin.shp"))[1, 1:2]
-goal_cd <- st_coordinates(st_read("BD_LeastCostTool/goal.shp"))[1, 1:2]
+
+# Read the shapefile directly from GitHub
+origin_sf <- st_read("/vsicurl/https://raw.githubusercontent.com/hyugoshirai/LeastCostPath/main/BD_LeastCostTool/origin.shp")
+goal_sf <- st_read("/vsicurl/https://raw.githubusercontent.com/hyugoshirai/LeastCostPath/main/BD_LeastCostTool/goal.shp")
+
+# Extract coordinates of the first point
+origin_cd <- st_coordinates(origin_sf)[1, 1:2]
+goal_cd <- st_coordinates(goal_sf)[1, 1:2]
 
 # Define UI
 ui <- fluidPage(
