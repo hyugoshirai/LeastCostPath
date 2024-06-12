@@ -6,18 +6,6 @@ try(install.packages(packages[!packages %in% installed.packages()]))
 # Load packages 
 try(invisible(lapply(packages, library, character.only = TRUE)))
 
-# Load the raster file directly from GitHub
-rst <- raster("/vsicurl/https://raw.githubusercontent.com/hyugoshirai/LeastCostPath/main/BD_LeastCostTool/landuse_simplified.tif")
-
-
-# Read the shapefile directly from GitHub
-origin_sf <- st_read("/vsicurl/https://raw.githubusercontent.com/hyugoshirai/LeastCostPath/main/BD_LeastCostTool/origin.shp")
-goal_sf <- st_read("/vsicurl/https://raw.githubusercontent.com/hyugoshirai/LeastCostPath/main/BD_LeastCostTool/goal.shp")
-
-# Extract coordinates of the first point
-origin_cd <- st_coordinates(origin_sf)[1, 1:2]
-goal_cd <- st_coordinates(goal_sf)[1, 1:2]
-
 # Define UI
 ui <- fluidPage(
   titlePanel("Land Use Reclassification"),
@@ -44,6 +32,19 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
+  
+  # Load the raster file directly from GitHub
+  rst <- raster("/vsicurl/https://raw.githubusercontent.com/hyugoshirai/LeastCostPath/main/BD_LeastCostTool/landuse_simplified.tif")
+  
+  
+  # Read the shapefile directly from GitHub
+  origin_sf <- st_read("/vsicurl/https://raw.githubusercontent.com/hyugoshirai/LeastCostPath/main/BD_LeastCostTool/origin.shp")
+  goal_sf <- st_read("/vsicurl/https://raw.githubusercontent.com/hyugoshirai/LeastCostPath/main/BD_LeastCostTool/goal.shp")
+  
+  # Extract coordinates of the first point
+  origin_cd <- st_coordinates(origin_sf)[1, 1:2]
+  goal_cd <- st_coordinates(goal_sf)[1, 1:2]
+  
   # Define land use labels and colors
   land_use_labels <- c("Forest", "Non Forest Natural Formation", "Farming", "Non vegetated area", "Water", "Forest Plantation")
   
@@ -54,9 +55,6 @@ server <- function(input, output, session) {
                        "Non vegetated area" = "#d4271e", 
                        "Water" = "#0000FF", 
                        "Forest Plantation" = "#7a5900")
-  
-  # Load the raster file
-  rst <- raster("BD_LeastCostTool/landuse_simplified.tif")
   
   # Get unique raster values and sort them
   unique_values <- sort(unique(values(rst)))
@@ -136,8 +134,9 @@ server <- function(input, output, session) {
       clearPopups()
     
     output$raster_plot <- renderPlot({
-      plot(reclassified_r(), xlab = "x coordinate (m)", ylab = "y coordinate (m)")
+      plot(rst, xlab = "x coordinate (m)", ylab = "y coordinate (m)", col = land_use_colors)
       lines(AtoB)
+      # legend("bottomright", legend = names(land_use_colors), fill = land_use_colors, title = "Original Land Use")
     })
     
     # Save the shortest path as a shapefile
