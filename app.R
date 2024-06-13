@@ -1,3 +1,49 @@
+# Load necessary packages
+if (!require(leaflet)) {
+  install.packages('leaflet', dependencies = TRUE)
+  library(leaflet)
+}
+
+if (!require(shinyWidgets)) {
+  install.packages('shinyWidgets', dependencies = TRUE)
+  library(shinyWidgets)
+}
+
+if (!require(sf)) {
+  install.packages('sf', dependencies = TRUE)
+  library(sf)
+}
+
+if (!require(leafem)) {
+  install.packages('leafem', dependencies = TRUE)
+  library(leafem)
+}
+
+if (!require(mapview)) {
+  install.packages('mapview', dependencies = TRUE)
+  library(mapview)
+}
+
+if (!require(gdistance)) {
+  install.packages('gdistance', dependencies = TRUE)
+  library(gdistance)
+}
+
+if (!require(dplyr)) {
+  install.packages('dplyr', dependencies = TRUE)
+  library(dplyr)
+}
+
+if (!require(DT)) {
+  install.packages('DT', dependencies = TRUE)
+  library(DT)
+}
+
+if (!require(raster)) {
+  install.packages('raster', dependencies = TRUE)
+  library(raster)
+}
+
 packages <- c("shiny", "leaflet", "raster", "DT", "shinyWidgets", "sf", "leafem", "mapview", "gdistance", "dplyr")
 
 # Install packages if they are not already installed
@@ -14,18 +60,11 @@ ui <- fluidPage(
       h4("Reclassification Table"),
       DTOutput("landuse_table"),
       actionButton("apply_changes", "Apply Changes"),
-      actionButton("execute_shortest_path", "Execute Shortest Path") # Add button for executing shortest path
+      actionButton("execute_shortest_path", "Execute Shortest Path")
     ),
     mainPanel(
-      h4("Original Raster"),
-      leafletOutput("original_map"),
-      h4("Reclassified Raster"),
-      leafletOutput("reclassified_map"),
-      # Add progress bar
-      div(id = "progress_container",
-          tags$div(id = "progress_bar", style = "width: 0%;", class = "progress-bar")
-      ),
-      # Add plot for reclassified raster and shortest path
+      h4("Map"),
+      leafletOutput("map"),
       plotOutput("raster_plot")
     )
   )
@@ -35,7 +74,6 @@ server <- function(input, output, session) {
   
   # Load the raster file directly from GitHub
   rst <- raster("/vsicurl/https://raw.githubusercontent.com/hyugoshirai/LeastCostPath/main/BD_LeastCostTool/landuse_simplified.tif")
-  
   
   # Read the shapefile directly from GitHub
   origin_sf <- st_read("/vsicurl/https://raw.githubusercontent.com/hyugoshirai/LeastCostPath/main/BD_LeastCostTool/origin.shp")
@@ -47,8 +85,6 @@ server <- function(input, output, session) {
   
   # Define land use labels and colors
   land_use_labels <- c("Forest", "Non Forest Natural Formation", "Farming", "Non vegetated area", "Water", "Forest Plantation")
-  
-  # Define land use colors in the specified order
   land_use_colors <- c("Forest" = "#32a65e", 
                        "Non Forest Natural Formation" = "#02d659", 
                        "Farming" = "#FFFFB2", 
@@ -81,7 +117,6 @@ server <- function(input, output, session) {
       for (i in seq_len(nrow(new_data))) {
         row <- new_data[i,]
         landuse_data[row$row, 3] <- as.numeric(row$value)
-        print(landuse_data)
       }
     }
     
@@ -94,66 +129,70 @@ server <- function(input, output, session) {
     
     reclassified_r(reclassified_r_temp)
     
-    output$reclassified_map <- renderLeaflet({
-      # Define a gradient palette from hot to cold colors
+    output$map <- renderLeaflet({
       color_palette <- colorNumeric(
         palette = c("#FF0000", "#FFFF00", "#00FFFF", "#0000FF"),
         domain = values(reclassified_r())
       )
       leaflet() %>%
+        addTiles(group = "OpenStreetMap") %>%
+        addProviderTiles("Esri.WorldImagery", group = "Satellite") %>%
         setView(lng = -48.9660322, lat = -22.8864848, zoom = 10) %>%
-        addTiles() %>%
-        addRasterImage(reclassified_r(), colors = color_palette) %>%
+        addRasterImage(rst, colors = land_use_colors, group = "Original Raster") %>%
+        addRasterImage(reclassified_r(), colors = color_palette, group = "Reclassified Raster") %>%
         addLegend(pal = color_palette, values = values(reclassified_r()),
-                  title = "Reclassified Land Use", position = "bottomright")
+                  title = "Reclassified Land Use", position = "bottomright", group = "Reclassified Raster") %>%
+        addLayersControl(
+          baseGroups = c("OpenStreetMap", "Satellite"),
+          overlayGroups = c("Original Raster", "Reclassified Raster"),
+          options = layersControlOptions(collapsed = FALSE)
+        )
     })
   })
   
   observeEvent(input$execute_shortest_path, {
-    # Execute shortest path analysis asynchronously
-    progress <- Progress$new(session, min = 0, max = 100)
-    on.exit(progress$close())
-    
-    # Perform the analysis and update the progress bar
-    Sys.sleep(2) # Placeholder for actual analysis time
-    for (i in 1:100) {
-      progress$set(value = i)
-      Sys.sleep(0.1) # Simulate processing time
-    }
-    
     tr <- transition(x = reclassified_r(), transitionFunction = mean, directions = 8)
     AtoB <- shortestPath(x = tr, origin = origin_cd, goal = goal_cd, output = "SpatialLines")
     
-    # Prompt user for file path to save shortest path
-    path <- shiny::textInput("save_path", "Enter file path to save the shortest path:", value = "")
-    
-    # Clear existing layers from the map
-    leafletProxy("reclassified_map", session) %>%
-      clearShapes() %>%
-      clearMarkers() %>%
-      clearPopups()
+    # Convert to sf object
+    AtoB_sf <- st_as_sf(AtoB)
     
     output$raster_plot <- renderPlot({
       plot(rst, xlab = "x coordinate (m)", ylab = "y coordinate (m)", col = land_use_colors)
       lines(AtoB)
-      # legend("bottomright", legend = names(land_use_colors), fill = land_use_colors, title = "Original Land Use")
     })
     
-    # Save the shortest path as a shapefile
+    # Use shinyFiles to let user navigate to save path
+    shinyFileSave(input, "save_path", roots = c(wd = '.'), session = session)
+    
     observeEvent(input$save_path, {
-      if (!is.null(input$save_path) && input$save_path != "") {
-        st_write(AtoB, dsn = paste0(input$save_path, ".shp"))
+      req(input$save_path)
+      save_path <- parseSavePath(roots = c(wd = '.'), input$save_path)
+      if (nrow(save_path) > 0) {
+        st_write(AtoB_sf, dsn = save_path$datapath, driver = "ESRI Shapefile")
       }
     })
+    
+    leafletProxy("map") %>%
+      addPolylines(data = AtoB_sf, color = "blue", weight = 2, group = "Shortest Path") %>%
+      addLayersControl(
+        baseGroups = c("OpenStreetMap", "Satellite"),
+        overlayGroups = c("Original Raster", "Reclassified Raster", "Shortest Path"),
+        options = layersControlOptions(collapsed = FALSE)
+      )
   })
   
-  output$original_map <- renderLeaflet({
+  output$map <- renderLeaflet({
     leaflet() %>%
+      addTiles(group = "OpenStreetMap") %>%
+      addProviderTiles("Esri.WorldImagery", group = "Satellite") %>%
       setView(lng = -48.9660322, lat = -22.8864848, zoom = 10) %>%
-      addTiles() %>%
-      addRasterImage(rst, colors = land_use_colors) %>%
-      addLegend(colors = land_use_colors, labels = names(land_use_colors),
-                title = "Original Land Use", position = "bottomright")
+      addRasterImage(rst, colors = land_use_colors, group = "Original Raster") %>%
+      addLayersControl(
+        baseGroups = c("OpenStreetMap", "Satellite"),
+        overlayGroups = c("Original Raster"),
+        options = layersControlOptions(collapsed = FALSE)
+      )
   })
 }
 
