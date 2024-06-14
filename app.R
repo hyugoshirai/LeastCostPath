@@ -1,49 +1,3 @@
-# Load necessary packages
-if (!require(leaflet)) {
-  install.packages('leaflet', dependencies = TRUE)
-  library(leaflet)
-}
-
-if (!require(shinyWidgets)) {
-  install.packages('shinyWidgets', dependencies = TRUE)
-  library(shinyWidgets)
-}
-
-if (!require(sf)) {
-  install.packages('sf', dependencies = TRUE)
-  library(sf)
-}
-
-if (!require(leafem)) {
-  install.packages('leafem', dependencies = TRUE)
-  library(leafem)
-}
-
-if (!require(mapview)) {
-  install.packages('mapview', dependencies = TRUE)
-  library(mapview)
-}
-
-if (!require(gdistance)) {
-  install.packages('gdistance', dependencies = TRUE)
-  library(gdistance)
-}
-
-if (!require(dplyr)) {
-  install.packages('dplyr', dependencies = TRUE)
-  library(dplyr)
-}
-
-if (!require(DT)) {
-  install.packages('DT', dependencies = TRUE)
-  library(DT)
-}
-
-if (!require(raster)) {
-  install.packages('raster', dependencies = TRUE)
-  library(raster)
-}
-
 packages <- c("shiny", "leaflet", "raster", "DT", "shinyWidgets", "sf", "leafem", "mapview", "gdistance", "dplyr")
 
 # Install packages if they are not already installed
@@ -162,16 +116,16 @@ server <- function(input, output, session) {
       lines(AtoB)
     })
     
-    # Use shinyFiles to let user navigate to save path
-    shinyFileSave(input, "save_path", roots = c(wd = '.'), session = session)
-    
-    observeEvent(input$save_path, {
-      req(input$save_path)
-      save_path <- parseSavePath(roots = c(wd = '.'), input$save_path)
-      if (nrow(save_path) > 0) {
-        st_write(AtoB_sf, dsn = save_path$datapath, driver = "ESRI Shapefile")
-      }
-    })
+    # # Use shinyFiles to let user navigate to save path
+    # shinyFileSave(input, "save_path", roots = c(wd = '.'), session = session)
+    # 
+    # observeEvent(input$save_path, {
+    #   req(input$save_path)
+    #   save_path <- parseSavePath(roots = c(wd = '.'), input$save_path)
+    #   if (nrow(save_path) > 0) {
+    #     st_write(AtoB_sf, dsn = save_path$datapath, driver = "ESRI Shapefile")
+    #   }
+    # })
     
     leafletProxy("map") %>%
       addPolylines(data = AtoB_sf, color = "blue", weight = 2, group = "Shortest Path") %>%
