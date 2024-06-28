@@ -64,16 +64,24 @@ server <- function(input, output, session) {
     datatable(landuse_data, editable = "cell")
   })
   
-  observeEvent(input$apply_changes, {
+  # observeEvent(input$apply_changes, {
+  #   new_data <- input$landuse_table_cell_edit
+  #   if (!is.null(new_data)) {
+  #     new_data <- as.data.frame(new_data)
+  #     for (i in seq_len(nrow(new_data))) {
+  #       row <- new_data[i,]
+  #       landuse_data[row$row, 3] <- as.numeric(row$value)
+  observeEvent(input$landuse_table_cell_edit, {
     new_data <- input$landuse_table_cell_edit
-    if (!is.null(new_data)) {
-      new_data <- as.data.frame(new_data)
-      for (i in seq_len(nrow(new_data))) {
-        row <- new_data[i,]
-        landuse_data[row$row, 3] <- as.numeric(row$value)
-      }
-    }
-    
+    print(new_data)
+    row <- new_data$row 
+    col <- new_data$col
+    value <- as.numeric(new_data$value)
+    landuse_data[row, col] <<- value  # Update the global landuse_data
+    print(landuse_data)
+  })
+  
+  observeEvent(input$apply_changes, {
     reclassified_values <- values(rst)
     for (i in 1:nrow(landuse_data)) {
       reclassified_values[values(rst) == landuse_data$raster_value[i]] <- landuse_data$new_value[i]
@@ -103,6 +111,7 @@ server <- function(input, output, session) {
         )
     })
   })
+  
   
   observeEvent(input$execute_shortest_path, {
     tr <- transition(x = reclassified_r(), transitionFunction = mean, directions = 8)
