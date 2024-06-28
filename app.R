@@ -61,7 +61,7 @@ server <- function(input, output, session) {
   reclassified_r <- reactiveVal(rst)
   
   output$landuse_table <- renderDT({
-    datatable(landuse_data, editable = "cell")
+    datatable(landuse_data, editable = list(target = "cell", disable = list(columns = c(0,1,2))))
   })
   
   # observeEvent(input$apply_changes, {
